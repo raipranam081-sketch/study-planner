@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Student Study Planner{% endblock %}
+
+{% block content %}
+<!-- Welcome Header -->
+<div class="page-header">
+    <div>
+        <h1>Welcome back, {{ current_user.name }}!</h1>
+        <p>Here is your academic progress overview and today's Random Forest study recommendations.</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('planner') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-calendar-day"></i> View Planner
+        </a>
+        <a href="{{ url_for('tracker') }}" class="btn btn-primary">
+            <i class="fa-solid fa-play"></i> Start Study Session
+        </a>
+    </div>
+</div>
+
+<!-- Dynamic Statistics Cards Grid -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon icon-blue">
+            <i class="fa-solid fa-book-open"></i>
+        </div>
+        <div class="stat-content">
+            <span class="stat-label">Total Subjects</span>
+            <span class="stat-value">{{ total_subjects }}</span>
+            <span class="stat-sub">Active course units</span>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon icon-amber">
+            <i class="fa-solid fa-hourglass-half"></i>
+        </div>
+        <div class="stat-content">
+            <span class="stat-label">Pending Tasks</span>
+            <span class="stat-value">{{ pending_tasks_count }}</span>
+            <span class="stat-sub">
+                {% if overdue_tasks_count > 0 %}
+                <strong style="color: var(--danger);">{{ overdue_tasks_count }} overdue</strong>
+                {% else %}
+                All deadlines on track
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon icon-emerald">
+            <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <div class="stat-content">
+            <span class="stat-label">Completed Tasks</span>
+            <span class="stat-value">{{ completed_tasks_count }}</span>
+            <span class="stat-sub">Assignments &amp; exercises</span>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon icon-purple">
+            <i class="fa-solid fa-clock"></i>
+        </div>
+        <div class="stat-content">
+            <span class="stat-label">Total Study Time</span>
+            <span class="stat-value">{{ total_study_hours }}h</span>
+            <span class="stat-sub">{{ weekly_study_hours }}h logged this week</span>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon icon-rose">
+            <i class="fa-solid fa-bullhorn"></i>
+        </div>
+        <div class="stat-content">
+            <span class="stat-label">Upcoming Exams</span>
+            <span class="stat-value">{{ upcoming_exams|length }}</span>
+            <span class="stat-sub">
+                {% if upcoming_exams %}
+                Next in {{ upcoming_exams[0].days_remaining }} days
+                {% else %}
+                No upcoming dates
+                {% endif %}
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Main Dashboard Grid -->
+<div class="dashboard-grid">
+    <!-- Left Column: Core Sections -->
+    <div class="dashboard-main">
+        <!-- Top Recommended Subjects Widget (Random Forest) -->
+        <div class="card" style="border-top: 4px solid var(--secondary);">
+            <div class="card-header">
+                <h3>
+                    <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--secondary);"></i> 
+                    Recommended Subjects to Study (AI Priority)
+                </h3>
+                <a href="{{ url_for('recommendations') }}" class="btn btn-secondary btn-sm">
+                    View Full Analysis &rarr;
+                </a>
+            </div>
+
+            {% if top_recommendations %}
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+                {% for rec in top_recommendations %}
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #F8FAFC; border-radius: var(--radius-md); border-left: 4px solid {{ rec.priority_color }};">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span class="badge {{ rec.priority_badge }}">{{ rec.priority }}</span>
+                            <strong style="font-size: 15px;">{{ rec.subject_name }}</strong>
+                            <span style="font-size: 12px; color: var(--text-muted);">
+                                ({{ rec.confidence_score }}% confidence)
+                            </span>
+                        </div>
+                        <p style="font-size: 12.5px; color: var(--text-secondary); margin-top: 4px;">
+                            {{ rec.reason }}
+                        </p>
+                    </div>
+
+                    <div style="text-align: right; flex-shrink: 0; margin-left: 14px;">
+                        <span style="font-size: 12px; font-weight: 600; color: var(--text-muted); display: block;">
+                            Rec. Duration: {{ rec.recommended_duration_text }}
+                        </span>
+                        <a href="{{ url_for('tracker', subject_id=rec.subject_id, duration=rec.recommended_duration_mins) }}" class="btn btn-primary btn-sm" style="margin-top: 6px;">
+                            <i class="fa-solid fa-play"></i> Study Now
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                <i class="fa-solid fa-book" style="font-size: 32px; margin-bottom: 8px;"></i>
+                <p>No subjects added yet. Add subjects to receive intelligent Random Forest recommendations!</p>
+                <a href="{{ url_for('subjects') }}" class="btn btn-primary btn-sm" style="margin-top: 12px;">Add Subjects</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Today's Study Schedule Section -->
+        <div class="card">
+            <div class="card-header">
+                <h3>
+                    <i class="fa-solid fa-calendar-check" style="color: var(--primary);"></i> 
+                    Today's Study Schedule ({{ today_name }})
+                </h3>
+                <a href="{{ url_for('planner') }}" class="btn btn-secondary btn-sm">Manage Schedule</a>
+            </div>
+
+            {% if today_sessions %}
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                {% for sess in today_sessions %}
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #FAFAFA; border-radius: var(--radius-md); border-left: 3px solid {{ sess.priority_color or 'var(--primary)' }};">
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <input type="checkbox" class="planner-session-toggle" data-session-id="{{ sess.session_id }}" {% if sess.completed %}checked{% endif %} style="width: 17px; height: 17px; cursor: pointer;">
+                        <div>
+                            <span style="font-size: 12px; font-weight: 700; color: var(--primary);">{{ sess.time_slot }}</span>
+                            <h4 style="font-size: 14px; margin-top: 2px;">{{ sess.subject_name }}</h4>
+                            <p style="font-size: 12px; color: var(--text-muted);">{{ sess.task_title }}</p>
+                        </div>
+                    </div>
+                    <span class="badge badge-secondary">{{ sess.duration_mins }} mins</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 24px; color: var(--text-muted); background: #F8FAFC; border-radius: var(--radius-md);">
+                <p>No study sessions scheduled for {{ today_name }}.</p>
+                <form action="{{ url_for('generate_weekly_plan') }}" method="POST" style="margin-top: 10px; display: inline-block;">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Generate Timetable
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Recently Added Subjects -->
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fa-solid fa-book-bookmark" style="color: var(--accent-blue);"></i> Recently Added Subjects</h3>
+                <a href="{{ url_for('subjects') }}" class="btn btn-secondary btn-sm">View All ({{ total_subjects }})</a>
+            </div>
+
+            {% if recent_subjects %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Difficulty</th>
+                            <th>Syllabus Completion</th>
+                            <th>Exam Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sub in recent_subjects %}
+                        <tr>
+                            <td>
+                                <strong>{{ sub.name }}</strong>
+                                <div style="font-size: 11.5px; color: var(--text-muted);">{{ sub.description[:45] }}...</div>
+                            </td>
+                            <td>
+                                <span class="badge badge-secondary">{{ sub.difficulty }}/5</span>
+                            </td>
+                            <td style="min-width: 150px;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600;">
+                                    <span>{{ sub.syllabus_completion }}%</span>
+                                </div>
+                                <div class="progress-bar-wrap">
+                                    <div class="progress-fill {% if sub.syllabus_completion >= 75 %}success{% elif sub.syllabus_completion >= 45 %}warning{% else %}danger{% endif %}" style="width: {{ sub.syllabus_completion }}%;"></div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if sub.exam_date %}
+                                <span style="font-size: 12.5px;">{{ sub.exam_date }}</span>
+                                {% else %}
+                                <span style="color: var(--text-muted); font-size: 12px;">Not set</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('tracker', subject_id=sub._id) }}" class="btn btn-secondary btn-sm" title="Track study session">
+                                    <i class="fa-solid fa-play"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p style="color: var(--text-muted); text-align: center; padding: 20px;">No subjects registered yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right Column: Upcoming Exams & Quick Actions -->
+    <div class="dashboard-sidebar">
+        <!-- Upcoming Examinations Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fa-regular fa-clock" style="color: var(--danger);"></i> Upcoming Examinations</h3>
+            </div>
+
+            {% if upcoming_exams %}
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                {% for exam in upcoming_exams %}
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #F8FAFC; border-radius: var(--radius-md); border-left: 3px solid {% if exam.days_remaining <= 7 %}var(--danger){% elif exam.days_remaining <= 21 %}var(--warning){% else %}var(--success){% endif %};">
+                    <div>
+                        <strong style="font-size: 13.5px; display: block;">{{ exam.name }}</strong>
+                        <span style="font-size: 11.5px; color: var(--text-muted);">{{ exam.exam_date }}</span>
+                    </div>
+                    <span class="badge {% if exam.days_remaining <= 7 %}badge-danger{% elif exam.days_remaining <= 21 %}badge-warning{% else %}badge-info{% endif %}">
+                        {{ exam.days_remaining }} day{{ 's' if exam.days_remaining != 1 else '' }} left
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 20px; color: var(--text-muted);">
+                <i class="fa-solid fa-calendar-check" style="font-size: 24px; margin-bottom: 6px;"></i>
+                <p style="font-size: 13px;">No upcoming exams found.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Weekly Study Activity Summary -->
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fa-solid fa-chart-simple" style="color: var(--accent-cyan);"></i> Study Activity</h3>
+                <a href="{{ url_for('progress') }}" class="btn btn-secondary btn-sm">Analytics</a>
+            </div>
+
+            <div style="text-align: center; padding: 16px 0;">
+                <span style="font-size: 34px; font-weight: 800; color: var(--primary); font-family: var(--font-heading);">
+                    {{ weekly_study_hours }}h
+                </span>
+                <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 4px;">Logged in the last 7 days</p>
+            </div>
+
+            <div style="border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 8px;">
+                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+                    <span>Task Completion</span>
+                    <strong>{{ completed_tasks_count }}/{{ pending_tasks_count + completed_tasks_count }}</strong>
+                </div>
+                {% set total_t = pending_tasks_count + completed_tasks_count %}
+                {% set pct = (completed_tasks_count / total_t * 100)|round(1) if total_t > 0 else 0 %}
+                <div class="progress-bar-wrap">
+                    <div class="progress-fill success" style="width: {{ pct }}%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Access Card -->
+        <div class="card" style="background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%); border-color: #C7D2FE;">
+            <h4 style="font-size: 15px; margin-bottom: 8px; color: var(--primary);">Need to prioritize?</h4>
+            <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 14px;">
+                Let the Random Forest Classifier calculate which subject has the greatest urgency right now.
+            </p>
+            <a href="{{ url_for('recommendations') }}" class="btn btn-primary btn-sm" style="width: 100%;">
+                <i class="fa-solid fa-brain"></i> Open Smart Recommendations
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

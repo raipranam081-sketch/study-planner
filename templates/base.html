@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Student Study Planner - Random Forest Recommendation{% endblock %}</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-layout">
+        {% if current_user %}
+        <!-- SIDEBAR NAVIGATION -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <div class="brand-text">
+                    <h2>StudyPlanner<span>.AI</span></h2>
+                    <span class="brand-sub">Random Forest ML</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section-title">MAIN MENU</div>
+                <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('subjects') }}" class="nav-item {% if request.endpoint == 'subjects' %}active{% endif %}">
+                    <i class="fa-solid fa-book-bookmark"></i>
+                    <span>My Subjects</span>
+                </a>
+                <a href="{{ url_for('tasks') }}" class="nav-item {% if request.endpoint == 'tasks' %}active{% endif %}">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>Study Tasks</span>
+                </a>
+                <a href="{{ url_for('planner') }}" class="nav-item {% if request.endpoint == 'planner' %}active{% endif %}">
+                    <i class="fa-solid fa-calendar-week"></i>
+                    <span>Weekly Planner</span>
+                </a>
+
+                <div class="nav-section-title">INTELLIGENCE</div>
+                <a href="{{ url_for('recommendations') }}" class="nav-item nav-highlight {% if request.endpoint == 'recommendations' %}active{% endif %}">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>Smart Recommendations</span>
+                    <span class="badge-pill-pulse">AI</span>
+                </a>
+                <a href="{{ url_for('tracker') }}" class="nav-item {% if request.endpoint == 'tracker' %}active{% endif %}">
+                    <i class="fa-solid fa-stopwatch"></i>
+                    <span>Study Tracker</span>
+                </a>
+                <a href="{{ url_for('progress') }}" class="nav-item {% if request.endpoint == 'progress' %}active{% endif %}">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Progress Reports</span>
+                </a>
+
+                <div class="nav-section-title">ACCOUNT</div>
+                <a href="{{ url_for('logout') }}" class="nav-item nav-logout">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span>Logout</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="system-status-chip">
+                    <span class="status-dot {% if is_mock_db %}status-mock{% else %}status-live{% endif %}"></span>
+                    <span class="status-label">
+                        {% if is_mock_db %}
+                        Mock MongoDB
+                        {% else %}
+                        MongoDB Connected
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="ml-badge-chip">
+                    <i class="fa-solid fa-microchip"></i> Random Forest Ready
+                </div>
+            </div>
+        </aside>
+        {% endif %}
+
+        <!-- MAIN CONTENT AREA -->
+        <div class="main-wrapper {% if not current_user %}full-width{% endif %}">
+            {% if current_user %}
+            <!-- TOPBAR -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="mobile-toggle-btn" id="mobileToggle" aria-label="Toggle navigation">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <div class="date-display">
+                        <i class="fa-regular fa-calendar"></i>
+                        <span>{{ today_str }}</span>
+                    </div>
+                </div>
+
+                <div class="topbar-right">
+                    <a href="{{ url_for('recommendations') }}" class="quick-rec-btn" title="View Machine Learning Priority Recommendations">
+                        <i class="fa-solid fa-bolt"></i>
+                        <span>AI Study Priority</span>
+                    </a>
+                    <div class="user-profile-badge">
+                        <div class="avatar-circle">
+                            {{ current_user.name[:1].upper() if current_user.name else 'S' }}
+                        </div>
+                        <div class="user-meta">
+                            <span class="user-name">{{ current_user.name }}</span>
+                            <span class="user-role">Student</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            {% endif %}
+
+            <!-- FLASH ALERTS CONTAINER -->
+            <div class="flash-messages-container">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">
+                                <div class="alert-icon">
+                                    {% if category == 'success' %}
+                                        <i class="fa-solid fa-circle-check"></i>
+                                    {% elif category == 'danger' %}
+                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                    {% elif category == 'warning' %}
+                                        <i class="fa-solid fa-circle-exclamation"></i>
+                                    {% else %}
+                                        <i class="fa-solid fa-circle-info"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="alert-text">{{ message }}</div>
+                                <button class="alert-close" onclick="this.parentElement.remove();">&times;</button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% if is_mock_db and current_user %}
+                <div class="alert alert-info db-notice-banner">
+                    <div class="alert-icon"><i class="fa-solid fa-database"></i></div>
+                    <div class="alert-text">
+                        <strong>Demo / Offline Database Active:</strong> The application is currently using in-memory MongoDB mock storage. Data is active for your current session. To persist across restarts, launch local MongoDB service or set a free MongoDB Atlas connection string in <code>.env</code>.
+                    </div>
+                    <button class="alert-close" onclick="this.parentElement.remove();">&times;</button>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- PAGE CONTENT INJECTION -->
+            <main class="page-content">
+                {% block content %}
+                {% if error_title %}
+                <div class="error-container">
+                    <div class="error-card">
+                        <div class="error-icon"><i class="fa-solid fa-compass-drafting"></i></div>
+                        <h2>{{ error_title }}</h2>
+                        <p>{{ error_message }}</p>
+                        <a href="{{ url_for('dashboard') if current_user else url_for('index') }}" class="btn btn-primary">
+                            <i class="fa-solid fa-house"></i> Return Home
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+                {% endblock %}
+            </main>
+
+            <!-- FOOTER -->
+            <footer class="app-footer">
+                <div class="footer-content">
+                    <p>&copy; {{ current_year }} Student Study Planner &bull; College Mini-Project Powered by <strong>Random Forest Machine Learning</strong> &amp; <strong>MongoDB</strong>.</p>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

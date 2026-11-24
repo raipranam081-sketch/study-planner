@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Smart Recommendations | Random Forest AI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Smart Study Recommendations</h1>
+        <p>Real-time subject urgency classification calculated by our trained Scikit-learn Random Forest model.</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('subjects') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-book"></i> Manage Subjects
+        </a>
+        <a href="{{ url_for('planner') }}" class="btn btn-primary">
+            <i class="fa-solid fa-calendar-week"></i> Update Weekly Plan
+        </a>
+    </div>
+</div>
+
+<!-- Machine Learning Model Metadata Banner -->
+<div class="model-info-banner">
+    <div class="model-info-left">
+        <h2>
+            <i class="fa-solid fa-tree"></i> Random Forest Classifier In Action
+        </h2>
+        <p>
+            The model analyzes 6 multi-dimensional factors: Subject Difficulty (1-5), Confidence Level (1-5), 
+            Exam Urgency (days remaining), Syllabus Backlog (%), Prior Test Score (%), and Recency Gap (days since last studied).
+        </p>
+    </div>
+    <div class="model-accuracy-badge">
+        <div class="accuracy-label">Model Test Accuracy</div>
+        <div class="accuracy-num">{{ model_accuracy }}%</div>
+    </div>
+</div>
+
+<!-- Recommendations List (Ranked High Priority First) -->
+{% if recommendations %}
+<div class="recommendations-list">
+    {% for rec in recommendations %}
+    <div class="rec-card {% if rec.priority == 'HIGH PRIORITY' %}high-priority{% elif rec.priority == 'MEDIUM PRIORITY' %}medium-priority{% else %}low-priority{% endif %}">
+        <div class="rec-header">
+            <div class="rec-title-wrap">
+                <span class="badge {{ rec.priority_badge }}" style="font-size: 13px; padding: 6px 14px;">
+                    <i class="fa-solid fa-circle-dot"></i> {{ rec.priority }}
+                </span>
+                <div>
+                    <h3 style="font-size: 21px;">{{ rec.subject_name }}</h3>
+                    <span style="font-size: 12.5px; color: var(--text-muted);">
+                        Classified via {{ rec.model_used }} &bull; AI Confidence: <strong>{{ rec.confidence_score }}%</strong>
+                    </span>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="text-align: right;">
+                    <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; display: block;">Suggested Duration</span>
+                    <span style="font-size: 16px; font-weight: 800; color: var(--primary);">{{ rec.recommended_duration_text }}</span>
+                </div>
+
+                <a href="{{ url_for('tracker', subject_id=rec.subject_id, duration=rec.recommended_duration_mins) }}" class="btn btn-primary">
+                    <i class="fa-solid fa-play"></i> Start Study Session
+                </a>
+            </div>
+        </div>
+
+        <!-- Human-Readable Reason Box -->
+        <div class="rec-reason-box">
+            <i class="fa-solid fa-circle-info"></i>
+            <div>
+                <strong>Why was this recommended?</strong>
+                <p style="margin-top: 2px;">{{ rec.reason }}</p>
+            </div>
+        </div>
+
+        <!-- 6 Feature Metrics Breakdown Grid -->
+        <div class="rec-metrics-grid">
+            <div class="rec-metric-item">
+                <span class="rec-metric-label">Exam Countdown</span>
+                <span class="rec-metric-val" style="color: {% if rec.days_until_exam <= 7 %}var(--danger){% elif rec.days_until_exam <= 21 %}var(--warning){% else %}var(--success){% endif %};">
+                    <i class="fa-regular fa-clock"></i> {{ rec.days_until_exam }} day{{ 's' if rec.days_until_exam != 1 else '' }}
+                </span>
+            </div>
+
+            <div class="rec-metric-item">
+                <span class="rec-metric-label">Syllabus Covered</span>
+                <span class="rec-metric-val">{{ rec.syllabus_completion }}%</span>
+                <div class="progress-bar-wrap" style="height: 6px;">
+                    <div class="progress-fill {% if rec.syllabus_completion >= 70 %}success{% elif rec.syllabus_completion >= 40 %}warning{% else %}danger{% endif %}" style="width: {{ rec.syllabus_completion }}%;"></div>
+                </div>
+            </div>
+
+            <div class="rec-metric-item">
+                <span class="rec-metric-label">Difficulty Rating</span>
+                <span class="rec-metric-val">{{ rec.difficulty }}/5</span>
+            </div>
+
+            <div class="rec-metric-item">
+                <span class="rec-metric-label">Confidence Level</span>
+                <span class="rec-metric-val">{{ rec.confidence }}/5</span>
+            </div>
+
+            <div class="rec-metric-item">
+                <span class="rec-metric-label">Prior Score</span>
+                <span class="rec-metric-val">{{ rec.previous_score }}%</span>
+            </div>
+
+            <div class="rec-metric-item">
+                <span class="rec-metric-label">Days Inactive</span>
+                <span class="rec-metric-val">{{ rec.features.days_since_last_studied }} days</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 60px 20px;">
+    <div class="stat-icon icon-purple" style="margin: 0 auto 16px; width: 64px; height: 64px; font-size: 28px;">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+    </div>
+    <h2>No Subjects Available for Recommendation</h2>
+    <p style="color: var(--text-muted); max-width: 460px; margin: 8px auto 20px;">
+        Add your enrolled courses and upcoming test dates to let our machine learning engine compute your priority study roadmap.
+    </p>
+    <a href="{{ url_for('subjects') }}" class="btn btn-primary btn-lg">
+        <i class="fa-solid fa-plus"></i> Go to My Subjects
+    </a>
+</div>
+{% endif %}
+{% endblock %}

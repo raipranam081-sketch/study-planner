@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Weekly Study Planner | Student Study Planner{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Weekly Study Planner</h1>
+        <p>Balanced Monday to Sunday timetable powered by Random Forest prioritization and pending task distribution.</p>
+    </div>
+    <div class="header-actions">
+        <form action="{{ url_for('generate_weekly_plan') }}" method="POST" style="display: inline;">
+            <button type="submit" class="btn btn-primary" title="Calculate optimal timetable using Random Forest priorities">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Generate Balanced Plan
+            </button>
+        </form>
+        <button class="btn btn-secondary" onclick="openModal('addSessionModal')">
+            <i class="fa-solid fa-plus"></i> Add Session Slot
+        </button>
+        <form action="{{ url_for('clear_planner') }}" method="POST" onsubmit="return confirm('Clear entire weekly timetable?');" style="display: inline;">
+            <button type="submit" class="btn btn-secondary btn-icon" title="Clear timetable">
+                <i class="fa-solid fa-trash-can" style="color: var(--danger);"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Weekly Timetable 7-Day Grid -->
+<div class="planner-grid">
+    {% for day in days_of_week %}
+    <div class="planner-day-col">
+        <div class="day-header">
+            <h4><i class="fa-regular fa-calendar-check" style="color: var(--primary);"></i> {{ day }}</h4>
+            <span class="day-badge">{{ plan_by_day[day]|length }} sessions</span>
+        </div>
+
+        <div class="day-sessions-list">
+            {% if plan_by_day[day] %}
+                {% for sess in plan_by_day[day] %}
+                <div class="session-card {% if sess.completed %}is-completed{% endif %}" id="session-card-{{ sess.session_id }}" style="border-left-color: {{ sess.priority_color or 'var(--primary)' }};">
+                    <div class="session-top">
+                        <span class="session-time"><i class="fa-regular fa-clock"></i> {{ sess.time_slot }}</span>
+                        <span class="badge" style="background-color: {{ sess.priority_color }}20; color: {{ sess.priority_color }}; font-size: 10px;">
+                            {{ sess.duration_mins }}m
+                        </span>
+                    </div>
+
+                    <div class="session-title">{{ sess.subject_name }}</div>
+                    <div class="session-task"><i class="fa-solid fa-list-check" style="color: var(--text-muted); font-size: 11px;"></i> {{ sess.task_title }}</div>
+
+                    <div class="session-actions">
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; color: var(--text-muted);">
+                            <input type="checkbox" class="planner-session-toggle" data-session-id="{{ sess.session_id }}" {% if sess.completed %}checked{% endif %} style="accent-color: var(--success); cursor: pointer;">
+                            <span>Mark Completed</span>
+                        </label>
+
+                        <div style="display: flex; gap: 6px;">
+                            <a href="{{ url_for('tracker', subject_id=sess.subject_id, duration=sess.duration_mins) }}" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 11px;" title="Start study timer for this session">
+                                <i class="fa-solid fa-play"></i>
+                            </a>
+                            <form action="{{ url_for('delete_planner_session', session_id=sess.session_id) }}" method="POST" onsubmit="return confirm('Remove this session slot?');" style="display: inline;">
+                                <button type="submit" class="btn btn-danger btn-sm" style="padding: 3px 8px; font-size: 11px;">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; padding: 36px 14px; color: var(--text-muted); font-size: 12.5px;">
+                    <i class="fa-regular fa-calendar-xmark" style="font-size: 24px; margin-bottom: 8px; color: #CBD5E1;"></i>
+                    <p>No study sessions scheduled for {{ day }}.</p>
+                    <button class="btn btn-secondary btn-sm" style="margin-top: 10px; font-size: 11px;" onclick="openAddSessionForDay('{{ day }}')">
+                        <i class="fa-solid fa-plus"></i> Add Slot
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ADD STUDY SESSION MODAL -->
+<div class="modal-overlay" id="addSessionModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-calendar-plus" style="color: var(--primary);"></i> Add Study Session Slot</h3>
+            <button class="modal-close" onclick="closeModal('addSessionModal')">&times;</button>
+        </div>
+        <form action="{{ url_for('add_planner_session') }}" method="POST">
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Day of Week</label>
+                        <select name="day" id="modalSessionDay" class="form-control">
+                            {% for d in days_of_week %}
+                            <option value="{{ d }}">{{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Time Slot</label>
+                        <select name="time_slot" class="form-control">
+                            <option value="09:00 AM - 10:30 AM">09:00 AM - 10:30 AM</option>
+                            <option value="11:00 AM - 12:30 PM">11:00 AM - 12:30 PM</option>
+                            <option value="02:00 PM - 03:30 PM">02:00 PM - 03:30 PM</option>
+                            <option value="04:30 PM - 06:00 PM">04:30 PM - 06:00 PM</option>
+                            <option value="07:30 PM - 09:00 PM" selected>07:30 PM - 09:00 PM</option>
+                            <option value="09:30 PM - 10:30 PM">09:30 PM - 10:30 PM</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Subject</label>
+                    <select name="subject_id" class="form-control" required>
+                        {% for s in subjects %}
+                        <option value="{{ s._id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Duration (minutes)</label>
+                        <input type="number" name="duration_mins" class="form-control" min="15" step="15" value="60" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Session Topic / Task</label>
+                        <input type="text" name="task_title" class="form-control" placeholder="e.g. Chapter 4 Practice Problems" required>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addSessionModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Save Session Slot</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openAddSessionForDay(day) {
+    const daySelect = document.getElementById("modalSessionDay");
+    if (daySelect) daySelect.value = day;
+    openModal("addSessionModal");
+}
+</script>
+{% endblock %}

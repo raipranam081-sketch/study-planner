@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}Study Tasks | Student Study Planner{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Study Tasks &amp; Assignments</h1>
+        <p>Keep track of academic deliverables, practice assignments, and revision checkpoints.</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn btn-primary" onclick="openModal('addTaskModal')">
+            <i class="fa-solid fa-plus"></i> Add New Task
+        </button>
+    </div>
+</div>
+
+<!-- Filter Tabs -->
+<div style="display: flex; gap: 10px; margin-bottom: 22px;">
+    <a href="{{ url_for('tasks', status='all') }}" class="btn {% if status_filter == 'all' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">
+        All Tasks ({{ tasks|length }})
+    </a>
+    <a href="{{ url_for('tasks', status='Pending') }}" class="btn {% if status_filter == 'Pending' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">
+        <i class="fa-solid fa-hourglass-half"></i> Pending Only
+    </a>
+    <a href="{{ url_for('tasks', status='Completed') }}" class="btn {% if status_filter == 'Completed' %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">
+        <i class="fa-solid fa-circle-check"></i> Completed Only
+    </a>
+</div>
+
+{% if tasks %}
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style="width: 40px; text-align: center;">Done</th>
+                    <th>Task &amp; Description</th>
+                    <th>Subject</th>
+                    <th>Est. Duration</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in tasks %}
+                <tr id="task-row-{{ t._id }}" class="{% if t.status == 'Completed' %}task-done{% endif %}">
+                    <td style="text-align: center;">
+                        <input type="checkbox" class="task-toggle-checkbox" data-task-id="{{ t._id }}" {% if t.status == 'Completed' %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);">
+                    </td>
+                    <td>
+                        <strong class="task-title" style="font-size: 14.5px; {% if t.status == 'Completed' %}text-decoration: line-through; color: var(--text-muted);{% endif %}">
+                            {{ t.title }}
+                        </strong>
+                        {% if t.description %}
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">
+                            {{ t.description }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge badge-secondary" style="font-size: 12px;">
+                            <i class="fa-solid fa-book"></i> {{ t.subject_name }}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">
+                            {{ t.duration_mins }} mins
+                        </span>
+                    </td>
+                    <td>
+                        {% if t.due_date %}
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 13px;">{{ t.due_date }}</span>
+                                {% if t.is_overdue %}
+                                <span class="badge badge-danger" title="Past due date!"><i class="fa-solid fa-triangle-exclamation"></i> Overdue</span>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <span style="color: var(--text-muted); font-size: 12px;">No deadline</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if t.status == 'Completed' %}
+                        <span class="badge badge-success task-status-badge">Completed</span>
+                        {% else %}
+                        <span class="badge badge-warning task-status-badge">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <div style="display: inline-flex; gap: 8px;">
+                            <button class="btn btn-secondary btn-sm" onclick="editTaskModal('{{ t._id }}', '{{ t.title|escape }}', '{{ t.subject_id }}', '{{ t.description|escape }}', '{{ t.due_date or '' }}', '{{ t.duration_mins }}', '{{ t.status }}')">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <form action="{{ url_for('delete_task', task_id=t._id) }}" method="POST" onsubmit="return confirm('Delete this study task?');" style="display: inline;">
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 60px 20px;">
+    <div class="stat-icon icon-amber" style="margin: 0 auto 16px; width: 64px; height: 64px; font-size: 28px;">
+        <i class="fa-solid fa-list-check"></i>
+    </div>
+    <h2>No Study Tasks Found</h2>
+    <p style="color: var(--text-muted); max-width: 450px; margin: 8px auto 20px;">
+        Organize your syllabus breakdown by breaking topics down into actionable study tasks.
+    </p>
+    <button class="btn btn-primary btn-lg" onclick="openModal('addTaskModal')">
+        <i class="fa-solid fa-plus"></i> Create Your First Task
+    </button>
+</div>
+{% endif %}
+
+<!-- ADD TASK MODAL -->
+<div class="modal-overlay" id="addTaskModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-plus-circle" style="color: var(--primary);"></i> Add Study Task</h3>
+            <button class="modal-close" onclick="closeModal('addTaskModal')">&times;</button>
+        </div>
+        <form action="{{ url_for('add_task') }}" method="POST">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Task Title *</label>
+                    <input type="text" name="title" class="form-control" placeholder="e.g. Solve Chapter 3 numerical problems" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Associated Subject</label>
+                    <select name="subject_id" class="form-control">
+                        <option value="">-- General Academic Task --</option>
+                        {% for s in subjects %}
+                        <option value="{{ s._id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Due Date</label>
+                        <input type="date" name="due_date" class="form-control" value="{{ today_str }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Estimated Duration (mins)</label>
+                        <input type="number" name="duration_mins" class="form-control" min="10" step="5" value="45" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Task Notes &amp; Objectives</label>
+                    <textarea name="description" class="form-control" placeholder="Details, exercise numbers, textbook page references..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addTaskModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Create Task</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT TASK MODAL -->
+<div class="modal-overlay" id="editTaskModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-pen-to-square" style="color: var(--secondary);"></i> Edit Task</h3>
+            <button class="modal-close" onclick="closeModal('editTaskModal')">&times;</button>
+        </div>
+        <form id="editTaskForm" method="POST">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Task Title *</label>
+                    <input type="text" id="edit_task_title" name="title" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Associated Subject</label>
+                    <select id="edit_task_subject_id" name="subject_id" class="form-control">
+                        <option value="">-- General Academic Task --</option>
+                        {% for s in subjects %}
+                        <option value="{{ s._id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Due Date</label>
+                        <input type="date" id="edit_task_due_date" name="due_date" class="form-control">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Estimated Duration (mins)</label>
+                        <input type="number" id="edit_task_duration_mins" name="duration_mins" class="form-control" min="10" step="5" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select id="edit_task_status" name="status" class="form-control">
+                        <option value="Pending">Pending</option>
+                        <option value="Completed">Completed</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Task Notes &amp; Objectives</label>
+                    <textarea id="edit_task_description" name="description" class="form-control"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editTaskModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function editTaskModal(id, title, subjectId, desc, dueDate, durationMins, status) {
+    document.getElementById("editTaskForm").action = `/tasks/${id}/edit`;
+    document.getElementById("edit_task_title").value = title;
+    document.getElementById("edit_task_subject_id").value = subjectId;
+    document.getElementById("edit_task_description").value = desc;
+    document.getElementById("edit_task_due_date").value = dueDate;
+    document.getElementById("edit_task_duration_mins").value = durationMins;
+    document.getElementById("edit_task_status").value = status;
+    openModal("editTaskModal");
+}
+</script>
+{% endblock %}
