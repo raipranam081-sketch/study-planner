@@ -1146,4 +1146,4 @@ if __name__ == "__main__":
     print(f" Running on: http://127.0.0.1:{port}")
     print(f" Database Mode: {'In-Memory MongoDB (Mock)' if is_database_mock() else 'Native MongoDB Server'}")
     print(f"=================================================================\n")
-    app.run(host="127.0.0.1", port=port, debug=debug)
+    app.run(host="127.0.0.0", port=port, debug=debug)
